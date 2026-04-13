@@ -1,6 +1,6 @@
 #!/bin/bash
 TORBOT_DIR="/opt/TorBot"
-source "$TORBOT_DIR/venv/bin/activate"
+PYTHON="$TORBOT_DIR/venv/bin/python3"
 TARGETS_FILE="${1:-$HOME/onion_targets.txt}"
 DEPTH="${2:-2}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -43,7 +43,7 @@ scan_target() {
     mkdir -p "$output_dir"
     log "${CYAN}[${index}/${total}] Scanning: ${url}${NC}"
     cd "$TORBOT_DIR"
-    PYTHONPATH=src timeout 300 python3 main.py -u "$url" --depth "$DEPTH" --save json --visualize table > "$output_dir/stdout.txt" 2>"$output_dir/stderr.txt"
+    PYTHONPATH=src timeout 300 "$PYTHON" main.py -u "$url" --depth "$DEPTH" --save json --visualize table > "$output_dir/stdout.txt" 2>"$output_dir/stderr.txt"
     local exit_code=$?
     if ls "$TORBOT_DIR"/*.json 1>/dev/null 2>&1; then
         mv "$TORBOT_DIR"/*.json "$output_dir/" 2>/dev/null
@@ -52,7 +52,7 @@ scan_target() {
         log "${GREEN}  [+] Success${NC}"
         echo "SUCCESS | $url" >> "$SUMMARY_FILE"
     elif [ $exit_code -eq 124 ]; then
-        log "${YELLOW}  [!] Timeout after 120s${NC}"
+        log "${YELLOW}  [!] Timeout after 300s${NC}"
         echo "TIMEOUT | $url" >> "$SUMMARY_FILE"
     else
         log "${RED}  [-] Failed (exit code: $exit_code)${NC}"

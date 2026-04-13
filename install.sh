@@ -58,7 +58,8 @@ else
 fi
 
 # ── Clone TorBot ──────────────────────────────────────────────────────────────
-TORBOT_DIR="$HOME/TorBot"
+# Use /opt so TorBot is accessible by all users regardless of who runs sudo
+TORBOT_DIR="/opt/TorBot"
 if [ -d "$TORBOT_DIR" ]; then
     warn "TorBot already exists at $TORBOT_DIR — pulling latest changes..."
     git -C "$TORBOT_DIR" pull -q
@@ -94,7 +95,10 @@ ln -sf "$SCRIPT_DIR/torbot_scanner.sh" /usr/local/bin/darkrecon
 success "darkrecon command installed."
 
 # ── Default targets file ──────────────────────────────────────────────────────
-TARGETS_FILE="$HOME/onion_targets.txt"
+# Write targets file to the invoking user's home, not root's
+REAL_USER="${SUDO_USER:-$USER}"
+REAL_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+TARGETS_FILE="$REAL_HOME/onion_targets.txt"
 if [ ! -f "$TARGETS_FILE" ]; then
     info "Creating sample targets file at $TARGETS_FILE..."
     cat > "$TARGETS_FILE" << 'EOF'
@@ -125,7 +129,7 @@ echo -e "  TorBot directory : ${CYAN}$TORBOT_DIR${NC}"
 echo -e "  Scanner script   : ${CYAN}$SCRIPT_DIR/torbot_scanner.sh${NC}"
 echo -e "  Global command   : ${CYAN}darkrecon${NC}"
 echo -e "  Targets file     : ${CYAN}$TARGETS_FILE${NC}"
-echo -e "  Results saved to : ${CYAN}~/torbot_results/<timestamp>/${NC}"
+echo -e "  Results saved to : ${CYAN}$REAL_HOME/torbot_results/<timestamp>/${NC}"
 echo ""
 echo -e "${YELLOW}  Next steps:${NC}"
 echo -e "  1. Edit your targets: ${CYAN}nano ~/onion_targets.txt${NC}"

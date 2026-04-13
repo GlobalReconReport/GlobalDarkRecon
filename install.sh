@@ -81,6 +81,12 @@ success "Python dependencies installed."
 
 deactivate
 
+# ── Fix TorBot directory ownership so non-root users can write training_data ──
+info "Setting TorBot directory ownership to $REAL_USER..."
+mkdir -p "$TORBOT_DIR/training_data"
+chown -R "$REAL_USER":"$REAL_USER" "$TORBOT_DIR"
+success "TorBot permissions set."
+
 # ── Install scanner script ────────────────────────────────────────────────────
 SCRIPT_DIR="/opt/GlobalDarkRecon"
 info "Installing GlobalDarkRecon scripts to $SCRIPT_DIR..."

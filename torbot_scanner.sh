@@ -1,5 +1,6 @@
 #!/bin/bash
-TORBOT_DIR="$HOME/TorBot"
+TORBOT_DIR="/opt/TorBot"
+source "$TORBOT_DIR/venv/bin/activate"
 TARGETS_FILE="${1:-$HOME/onion_targets.txt}"
 DEPTH="${2:-2}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")

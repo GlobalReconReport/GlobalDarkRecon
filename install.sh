@@ -137,8 +137,8 @@ fi
 info "Updating package lists..."
 apt-get update -qq
 
-info "Installing system dependencies (tor, python3, pip, git, curl)..."
-apt-get install -y -qq tor python3 python3-pip python3-venv git curl nmap 2>/dev/null
+info "Installing system dependencies (tor, python3, pip, git, curl, firejail)..."
+apt-get install -y -qq tor python3 python3-pip python3-venv git curl nmap firejail 2>/dev/null
 success "System packages installed."
 
 # ── Start & enable Tor ────────────────────────────────────────────────────────
@@ -240,6 +240,12 @@ chmod +x "$SCRIPT_DIR/torbot_scanner.sh"
 ln -sf "$SCRIPT_DIR/torbot_scanner.sh" /usr/local/bin/darkrecon
 success "darkrecon command installed (native mode)."
 
+# ── Deploy Firejail profile ───────────────────────────────────────────────────
+if [ -f "$REPO_DIR/firejail/torbot.profile" ]; then
+    cp "$REPO_DIR/firejail/torbot.profile" "$SCRIPT_DIR/torbot.profile"
+    success "Firejail sandbox profile installed."
+fi
+
 # ── Default targets file ──────────────────────────────────────────────────────
 if [ ! -f "$TARGETS_FILE" ]; then
     info "Creating sample targets file at $TARGETS_FILE..."
@@ -267,6 +273,11 @@ echo -e "  Scanner script   : ${CYAN}$SCRIPT_DIR/torbot_scanner.sh${NC}"
 echo -e "  Global command   : ${CYAN}darkrecon${NC}"
 echo -e "  Targets file     : ${CYAN}$TARGETS_FILE${NC}"
 echo -e "  Results saved to : ${CYAN}$REAL_HOME/torbot_results/<timestamp>/${NC}"
+if command -v firejail &>/dev/null; then
+    echo -e "  Sandbox          : ${GREEN}Firejail ACTIVE — caps.drop=all | seccomp | protocol filter | filesystem blacklists${NC}"
+else
+    echo -e "  Sandbox          : ${YELLOW}Firejail not found (install firejail to enable)${NC}"
+fi
 echo ""
 echo -e "${YELLOW}  Next steps:${NC}"
 echo -e "  1. Edit your targets: ${CYAN}nano ~/onion_targets.txt${NC}"

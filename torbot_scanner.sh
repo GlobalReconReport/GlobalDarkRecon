@@ -3,6 +3,8 @@ set -eo pipefail
 
 TORBOT_DIR="/opt/TorBot"
 PYTHON="$TORBOT_DIR/venv/bin/python3"
+SCRIPT_DIR="/opt/GlobalDarkRecon"
+FIREJAIL_PROFILE="$SCRIPT_DIR/torbot.profile"
 TARGETS_FILE="${1:-$HOME/onion_targets.txt}"
 DEPTH="${2:-2}"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -16,11 +18,13 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# Strip ANSI codes when writing to log file so it stays grep-friendly
+# Strip ANSI codes when writing to log file so it stays grep-friendly.
+# Color vars use literal \033 (single-quoted), so echo -e must expand them
+# before sed can match the resulting ESC (0x1b) bytes.
 log() {
     local msg="[$(date +"%H:%M:%S")] $1"
     echo -e "$msg"
-    echo "$msg" | sed 's/\x1b\[[0-9;]*m//g' >> "$LOG_FILE"
+    echo -e "$msg" | sed 's/\x1b\[[0-9;]*m//g' >> "$LOG_FILE"
 }
 
 check_tor() {
@@ -29,7 +33,6 @@ check_tor() {
         return 0
     else
         log "${RED}[-] Tor SOCKS proxy not detected on port 9050${NC}"
-        # Avoid sudo prompt in non-interactive runs; try both unit names
         systemctl start tor 2>/dev/null || systemctl start tor@default 2>/dev/null || true
         sleep 3
         if ss -tlnp | grep -q ":9050"; then
@@ -42,6 +45,10 @@ check_tor() {
     fi
 }
 
+sandbox_active() {
+    command -v firejail &>/dev/null && [ -f "$FIREJAIL_PROFILE" ]
+}
+
 scan_target() {
     local url="$1"
     local index="$2"
@@ -52,18 +59,34 @@ scan_target() {
     mkdir -p "$output_dir"
     log "${CYAN}[${index}/${total}] Scanning: ${url}${NC}"
 
-    # Run TorBot in a subshell so the cd doesn't affect the parent shell's cwd
-    (
-        cd "$TORBOT_DIR"
-        PYTHONPATH="$TORBOT_DIR/src" timeout 300 "$PYTHON" main.py \
-            -u "$url" --depth "$DEPTH" --save json --visualize table \
-            > "$output_dir/stdout.txt" 2>"$output_dir/stderr.txt"
-    )
-    local exit_code=$?
-
-    # Move any JSON output TorBot wrote to $TORBOT_DIR into the result dir
-    if ls "$TORBOT_DIR"/*.json 1>/dev/null 2>&1; then
-        mv "$TORBOT_DIR"/*.json "$output_dir/" 2>/dev/null || true
+    # Capture exit code without triggering set -e on non-zero exit
+    local exit_code=0
+    if sandbox_active; then
+        # Firejail mode: TorBot dir is read-only so --save json is omitted
+        # (TorBot writes JSON to its own src/ dir which would fail read-only).
+        # All intelligence is captured in stdout.txt via --visualize table.
+        (
+            cd "$TORBOT_DIR"
+            timeout 300 firejail \
+                --profile="$FIREJAIL_PROFILE" \
+                --read-only="$TORBOT_DIR" \
+                --env="PYTHONPATH=$TORBOT_DIR/src" \
+                -- \
+                "$PYTHON" main.py \
+                    -u "$url" --depth "$DEPTH" --visualize table \
+                    > "$output_dir/stdout.txt" 2>"$output_dir/stderr.txt"
+        ) || exit_code=$?
+    else
+        (
+            cd "$TORBOT_DIR"
+            PYTHONPATH="$TORBOT_DIR/src" timeout 300 "$PYTHON" main.py \
+                -u "$url" --depth "$DEPTH" --save json --visualize table \
+                > "$output_dir/stdout.txt" 2>"$output_dir/stderr.txt"
+        ) || exit_code=$?
+        # TorBot writes JSON to src/ (project_root_directory in config.py)
+        if ls "$TORBOT_DIR"/src/*.json 1>/dev/null 2>&1; then
+            mv "$TORBOT_DIR"/src/*.json "$output_dir/" 2>/dev/null || true
+        fi
     fi
 
     if [ "$exit_code" -eq 0 ]; then
@@ -114,6 +137,18 @@ log "${GREEN}[+] TorBot Multi-Target Scanner${NC}"
 log "  Targets file : $TARGETS_FILE"
 log "  Crawl depth  : $DEPTH"
 log "  Results dir  : $RESULTS_DIR"
+
+# Report sandbox status before any scanning begins
+if sandbox_active; then
+    log "${GREEN}[+] Firejail sandbox : ACTIVE${NC}"
+    log "  Profile      : $FIREJAIL_PROFILE"
+    log "  Isolation    : caps.drop=all | seccomp | protocol=inet | filesystem blacklists"
+else
+    log "${YELLOW}[!] Firejail sandbox : INACTIVE${NC}"
+    if ! command -v firejail &>/dev/null; then
+        log "    Install firejail for sandboxed scans: sudo apt-get install -y firejail"
+    fi
+fi
 
 echo "-------------------------------------------" >> "$SUMMARY_FILE"
 echo "Scan started: $(date)" >> "$SUMMARY_FILE"

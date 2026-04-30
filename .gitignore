@@ -1,0 +1,50 @@
+# ── Scan outputs (contain OSINT intelligence data) ───────────────────────────
+torbot_results/
+*.results/
+
+# ── Target lists (may contain sensitive .onion URLs) ─────────────────────────
+onion_targets.txt
+targets.txt
+*.targets
+
+# ── Secrets and environment files ────────────────────────────────────────────
+.env
+*.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+secrets/
+credentials/
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Python artifacts ──────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# ── Docker build cache ────────────────────────────────────────────────────────
+.dockerignore
+
+# ── Editor artifacts ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS artifacts ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

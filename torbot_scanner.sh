@@ -5,8 +5,16 @@ TORBOT_DIR="/opt/TorBot"
 PYTHON="$TORBOT_DIR/venv/bin/python3"
 SCRIPT_DIR="/opt/GlobalDarkRecon"
 FIREJAIL_PROFILE="$SCRIPT_DIR/torbot.profile"
-TARGETS_FILE="${1:-$HOME/onion_targets.txt}"
 DEPTH="${2:-2}"
+if [[ "${1:-}" == http://* || "${1:-}" == https://* ]]; then
+    DIRECT_URL="$1"
+    TARGETS_FILE=$(mktemp /tmp/darkrecon_target.XXXXXX)
+    echo "$DIRECT_URL" > "$TARGETS_FILE"
+    trap 'rm -f "$TARGETS_FILE"' EXIT
+else
+    DIRECT_URL=""
+    TARGETS_FILE="${1:-$HOME/onion_targets.txt}"
+fi
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 RESULTS_DIR="$HOME/torbot_results/$TIMESTAMP"
 LOG_FILE="$RESULTS_DIR/scan_log.txt"
@@ -134,7 +142,7 @@ mkdir -p "$RESULTS_DIR"
 touch "$LOG_FILE" "$SUMMARY_FILE"
 
 log "${GREEN}[+] TorBot Multi-Target Scanner${NC}"
-log "  Targets file : $TARGETS_FILE"
+[ -n "$DIRECT_URL" ] && log "  URL          : $DIRECT_URL" || log "  Targets file : $TARGETS_FILE"
 log "  Crawl depth  : $DEPTH"
 log "  Results dir  : $RESULTS_DIR"
 

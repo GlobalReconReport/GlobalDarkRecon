@@ -213,10 +213,10 @@ if [ -n "$SEARCH_KEYWORD" ]; then
          --user-agent "Mozilla/5.0 (Windows NT 10.0; rv:109.0) Gecko/20100101 Firefox/115.0" \
          "$SEARCH_URL" 2>/dev/null \
     | "$PYTHON" -c "
-import sys, re
-html = sys.stdin.read()
-raw = re.findall(r'https?://[a-z2-7]{16,56}\.onion(?:[/?#][^\s<>\"\']*)?', html, re.I)
-cleaned = [u.rstrip('.,;:)') for u in raw]
+import sys, re, html as _h
+page = sys.stdin.read()
+raw = re.findall(r'https?://[a-z2-7]{16,56}\.onion(?:[/?#][^\s<>\"\']*)?', page, re.I)
+cleaned = [_h.unescape(u).rstrip('.,;:)') for u in raw]
 urls = sorted(set(cleaned))
 for u in urls: print(u)
 " > "$DISCOVERED_FILE" || fetch_exit=$?

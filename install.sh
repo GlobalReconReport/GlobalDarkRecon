@@ -191,6 +191,12 @@ sed -i 's/pyinstaller-hooks-contrib==2024\.6/pyinstaller-hooks-contrib==2024.8/'
 # sklearn==0.0 is a broken stub that has no Python 3.13 wheel
 sed -i '/^sklearn==0\.0/d' "$REQS"
 
+# numpy/scikit-learn/scipy are pre-installed as binaries below; strip them
+# here so the main pip install -r pass doesn't attempt a source rebuild.
+sed -i '/^numpy[>=<!]/d;/^numpy$/d' "$REQS"
+sed -i '/^scikit-learn[>=<!]/d;/^scikit-learn$/d' "$REQS"
+sed -i '/^scipy[>=<!]/d;/^scipy$/d' "$REQS"
+
 success "requirements.txt patched."
 
 # ── Python virtual environment ────────────────────────────────────────────────

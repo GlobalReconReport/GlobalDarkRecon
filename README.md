@@ -31,15 +31,15 @@ darkrecon
 darkrecon /path/to/targets.txt 3
 
 # Search by keyword and crawl every discovered result
-darkrecon --search 'ransomware' --engine http://searchengine.onion
+darkrecon --search 'ransomware' --engine http://3bbad7fauom4d6sgppalyqddsqbf5u5p56b5k5uk2zxsy3d6ey2jobad.onion/search
 
 # Keyword search with custom crawl depth
-darkrecon --search 'combolist' --engine http://searchengine.onion 3
+darkrecon --search 'combolist' --engine http://3bbad7fauom4d6sgppalyqddsqbf5u5p56b5k5uk2zxsy3d6ey2jobad.onion/search 3
 ```
 
 The optional depth argument controls how many levels TorBot crawls from each seed URL (default: `2`; 1–5 recommended).
 
-In `--search` mode the tool fetches the search results page through Tor, extracts every `.onion` link from the HTML, saves them to `discovered_links.txt` in the results directory, then scans each one in sequence. Common research keywords: `combolist`, `fullz`, `carding`, `botnet`, `ransomware`, `0day`, `doxing`, `escrow`.
+In `--search` mode the tool fetches the search results page through Tor, extracts every `.onion` link from the HTML, saves them to `discovered_links.txt` in the results directory, then scans each one in sequence. The `--engine` value must point to the search endpoint path, not the engine root — OnionLand Search serves results at `/search?q=`, so the correct value is the full `/search` path as shown above. Common research keywords: `combolist`, `fullz`, `carding`, `botnet`, `ransomware`, `0day`, `doxing`, `escrow`.
 
 ### Targets file format
 

@@ -5,15 +5,34 @@ TORBOT_DIR="/opt/TorBot"
 PYTHON="$TORBOT_DIR/venv/bin/python3"
 SCRIPT_DIR="/opt/GlobalDarkRecon"
 FIREJAIL_PROFILE="$SCRIPT_DIR/torbot.profile"
-DEPTH="${2:-2}"
-if [[ "${1:-}" == http://* || "${1:-}" == https://* ]]; then
-    DIRECT_URL="$1"
+SEARCH_KEYWORD=""
+SEARCH_ENGINE=""
+DIRECT_URL=""
+TARGETS_FILE=""
+DEPTH=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --search) SEARCH_KEYWORD="$2"; shift 2 ;;
+        --engine) SEARCH_ENGINE="$2"; shift 2 ;;
+        http://*|https://*) DIRECT_URL="$1"; shift ;;
+        *)
+            if [[ "$1" =~ ^[0-9]+$ ]]; then
+                DEPTH="$1"
+            else
+                TARGETS_FILE="$1"
+            fi
+            shift ;;
+    esac
+done
+DEPTH="${DEPTH:-2}"
+
+if [ -n "$DIRECT_URL" ]; then
     TARGETS_FILE=$(mktemp /tmp/darkrecon_target.XXXXXX)
     echo "$DIRECT_URL" > "$TARGETS_FILE"
     trap 'rm -f "$TARGETS_FILE"' EXIT
-else
-    DIRECT_URL=""
-    TARGETS_FILE="${1:-$HOME/onion_targets.txt}"
+elif [ -z "$SEARCH_KEYWORD" ]; then
+    TARGETS_FILE="${TARGETS_FILE:-$HOME/onion_targets.txt}"
 fi
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 RESULTS_DIR="$HOME/torbot_results/$TIMESTAMP"
@@ -129,7 +148,7 @@ echo -e "${YELLOW}              ⚡ Dark Web OSINT Intelligence Platform ⚡  ${
 echo -e "${RED}  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀${NC}"
 
 # Create targets file if missing, then exit so the user can edit it
-if [ ! -f "$TARGETS_FILE" ]; then
+if [ -z "$SEARCH_KEYWORD" ] && [ -z "$DIRECT_URL" ] && [ ! -f "$TARGETS_FILE" ]; then
     cat > "$TARGETS_FILE" << 'EOF'
 # TorBot Scanner Targets
 https://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion
@@ -142,7 +161,15 @@ mkdir -p "$RESULTS_DIR"
 touch "$LOG_FILE" "$SUMMARY_FILE"
 
 log "${GREEN}[+] TorBot Multi-Target Scanner${NC}"
-[ -n "$DIRECT_URL" ] && log "  URL          : $DIRECT_URL" || log "  Targets file : $TARGETS_FILE"
+if [ -n "$SEARCH_KEYWORD" ]; then
+    log "  Mode         : keyword search"
+    log "  Keyword      : $SEARCH_KEYWORD"
+    log "  Engine       : $SEARCH_ENGINE"
+elif [ -n "$DIRECT_URL" ]; then
+    log "  URL          : $DIRECT_URL"
+else
+    log "  Targets file : $TARGETS_FILE"
+fi
 log "  Crawl depth  : $DEPTH"
 log "  Results dir  : $RESULTS_DIR"
 
@@ -163,6 +190,45 @@ echo "Scan started: $(date)" >> "$SUMMARY_FILE"
 echo "-------------------------------------------" >> "$SUMMARY_FILE"
 
 check_tor || exit 1
+
+# ── Search mode: fetch results page and discover onion targets ────────────────
+if [ -n "$SEARCH_KEYWORD" ]; then
+    if [ -z "$SEARCH_ENGINE" ]; then
+        log "${RED}[-] --search requires --engine <onion_url>${NC}"; exit 1
+    fi
+    ENCODED_KEYWORD=$("$PYTHON" -c \
+        "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" \
+        "$SEARCH_KEYWORD")
+    if [[ "$SEARCH_ENGINE" == *"?"* ]]; then
+        SEARCH_URL="${SEARCH_ENGINE%/}&q=${ENCODED_KEYWORD}"
+    else
+        SEARCH_URL="${SEARCH_ENGINE%/}?q=${ENCODED_KEYWORD}"
+    fi
+    log "${CYAN}[*] Fetching search results through Tor...${NC}"
+    log "  Query URL : $SEARCH_URL"
+    DISCOVERED_FILE="$RESULTS_DIR/discovered_links.txt"
+    fetch_exit=0
+    curl --socks5-hostname 127.0.0.1:9050 \
+         --max-time 60 --silent --location \
+         --user-agent "Mozilla/5.0 (Windows NT 10.0; rv:109.0) Gecko/20100101 Firefox/115.0" \
+         "$SEARCH_URL" 2>/dev/null \
+    | "$PYTHON" -c "
+import sys, re
+html = sys.stdin.read()
+urls = sorted(set(re.findall(r'https?://[a-z2-7]{16,56}\.onion[^\s\"'\''<>]*', html, re.I)))
+for u in urls: print(u)
+" > "$DISCOVERED_FILE" || fetch_exit=$?
+    if [ "$fetch_exit" -ne 0 ] || [ ! -s "$DISCOVERED_FILE" ]; then
+        log "${RED}[-] No onion links discovered. Check keyword, engine URL, and Tor connectivity.${NC}"
+        exit 1
+    fi
+    DISC_COUNT=$(wc -l < "$DISCOVERED_FILE")
+    log "${GREEN}[+] Discovered $DISC_COUNT onion link(s)${NC}"
+    while IFS= read -r link; do
+        log "  ${CYAN}→${NC} $link"
+    done < "$DISCOVERED_FILE"
+    TARGETS_FILE="$DISCOVERED_FILE"
+fi
 
 mapfile -t TARGETS < <(grep -v '^\s*#' "$TARGETS_FILE" | grep -v '^\s*$')
 TOTAL=${#TARGETS[@]}

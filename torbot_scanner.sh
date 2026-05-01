@@ -215,7 +215,7 @@ if [ -n "$SEARCH_KEYWORD" ]; then
     | "$PYTHON" -c "
 import sys, re
 html = sys.stdin.read()
-urls = sorted(set(re.findall(r'https?://[a-z2-7]{16,56}\.onion[^\s\"'\''<>]*', html, re.I)))
+urls = sorted(set(re.findall(r'https?://[a-z2-7]{16,56}\.onion\S*', html, re.I)))
 for u in urls: print(u)
 " > "$DISCOVERED_FILE" || fetch_exit=$?
     if [ "$fetch_exit" -ne 0 ] || [ ! -s "$DISCOVERED_FILE" ]; then

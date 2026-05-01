@@ -15,6 +15,50 @@ Batch-scans `.onion` sites through Tor, crawls to a configurable depth, extracts
 
 ---
 
+## Usage
+
+```bash
+# Scan a single URL directly
+darkrecon https://somesite.onion
+
+# Scan a single URL with custom crawl depth
+darkrecon https://somesite.onion 3
+
+# Scan all URLs in your default targets file (~/onion_targets.txt)
+darkrecon
+
+# Scan a custom targets file with custom depth
+darkrecon /path/to/targets.txt 3
+```
+
+The optional depth argument controls how many levels TorBot crawls from each seed URL (default: `2`; 1–5 recommended).
+
+### Targets file format
+
+```
+# Lines starting with # are ignored
+# One URL per line
+
+http://exampleonionaddress1234.onion
+http://anotheronionaddress5678.onion
+```
+
+### Runtime output
+
+```
+[09:42:01] [+] TorBot Multi-Target Scanner
+[09:42:01]   URL          : https://somesite.onion
+[09:42:01]   Crawl depth  : 2
+[09:42:01] [+] Firejail sandbox : ACTIVE
+[09:42:01]   Isolation    : caps.drop=all | seccomp | protocol=inet | filesystem blacklists
+[09:42:03] [+] Tor SOCKS proxy is running on port 9050
+[09:42:03] [+] Loaded 1 target(s)
+[09:42:03] [1/1] Scanning: https://somesite.onion
+[09:47:03]   [+] Success
+```
+
+---
+
 ## Features
 
 | Feature | Description |
@@ -108,60 +152,6 @@ The installer will:
 10. Create a sample targets file at `~/onion_targets.txt`
 
 The installer is idempotent — it can be re-run to apply updates without losing existing results.
-
----
-
-## Usage
-
-### Basic syntax
-
-```
-darkrecon [targets_file] [depth]
-```
-
-| Argument | Default | Description |
-|---|---|---|
-| `targets_file` | `~/onion_targets.txt` | Path to a plain-text file of `.onion` URLs, one per line |
-| `depth` | `2` | How many levels deep to crawl from each seed URL (1–5 recommended) |
-
-### Examples
-
-```bash
-# Run with defaults
-darkrecon
-
-# Custom targets file
-darkrecon ~/my_targets.txt
-
-# Custom file and depth
-darkrecon ~/my_targets.txt 3
-```
-
-### Targets file format
-
-```
-# Lines starting with # are ignored
-# One URL per line
-
-http://exampleonionaddress1234.onion
-http://anotheronionaddress5678.onion
-```
-
-### Runtime output
-
-```
-[09:42:01] [+] TorBot Multi-Target Scanner
-[09:42:01]   Targets file : /home/user/onion_targets.txt
-[09:42:01]   Crawl depth  : 2
-[09:42:01] [+] Firejail sandbox : ACTIVE
-[09:42:01]   Isolation    : caps.drop=all | seccomp | protocol=inet | filesystem blacklists
-[09:42:03] [+] Tor SOCKS proxy is running on port 9050
-[09:42:03] [+] Loaded 2 target(s)
-[09:42:03] [1/2] Scanning: http://example1.onion
-[09:47:03]   [+] Success
-[09:47:08] [2/2] Scanning: http://example2.onion
-[09:52:08]   [!] Timeout after 300s
-```
 
 ---
 
